@@ -7,7 +7,7 @@ import { HistoryList } from './components/HistoryList';
 import { TrendFinder } from './components/TrendFinder';
 import { analyzeContent } from './services/geminiService';
 import { getHistory, saveHistoryItem, deleteHistoryItem } from './services/historyService';
-import { AnalysisResult, HistoryItem, AppMode } from './types';
+import { AnalysisResult, HistoryItem, AppMode, AplusContent } from './types';
 import { Book, LayoutDashboard, Github, Download, FileDown, FileText, History as HistoryIcon, ArrowLeft, User, TrendingUp, Search } from 'lucide-react';
 import { jsPDF } from "jspdf";
 
@@ -33,6 +33,10 @@ const App: React.FC = () => {
   const [authorName, setAuthorName] = useState<string>('');
   const [authorUrl, setAuthorUrl] = useState<string>('https://www.amazon.com/author/billhanoman');
   const [authorBio, setAuthorBio] = useState<string>('');
+  
+  // A+ Content State
+  const [aplusContent, setAplusContent] = useState<AplusContent | null>(null);
+  const [aplusImages, setAplusImages] = useState<Record<number, string>>({});
 
   // Load history on mount
   useEffect(() => {
@@ -64,7 +68,9 @@ const App: React.FC = () => {
                 customTitles,
                 authorName,
                 authorUrl,
-                authorBio
+                authorBio,
+                aplusContent: aplusContent || undefined,
+                aplusImages
             }
         };
         
@@ -81,7 +87,7 @@ const App: React.FC = () => {
             return [item, ...prev];
         });
     }
-  }, [data, activeTitle, currentCoverIdeas, specificFixes, coverImages, customTitles, authorName, authorUrl, authorBio, currentHistoryId]);
+  }, [data, activeTitle, currentCoverIdeas, specificFixes, coverImages, customTitles, authorName, authorUrl, authorBio, aplusContent, aplusImages, currentHistoryId]);
 
   const handleAnalyze = async (text: string, fileData: string | undefined) => {
     setIsLoading(true);
@@ -100,6 +106,8 @@ const App: React.FC = () => {
       // Keep authorUrl as default if not already set, or just default to Bill's link
       if (!authorUrl) setAuthorUrl('https://www.amazon.com/author/billhanoman');
       setAuthorBio(result.authorBio || '');
+      setAplusContent(null);
+      setAplusImages({});
 
       // Create new history item
       const newId = Date.now().toString();
@@ -122,6 +130,8 @@ const App: React.FC = () => {
       setAuthorName(item.interactiveState.authorName || item.result.author || '');
       setAuthorUrl(item.interactiveState.authorUrl || 'https://www.amazon.com/author/billhanoman');
       setAuthorBio(item.interactiveState.authorBio || item.result.authorBio || '');
+      setAplusContent(item.interactiveState.aplusContent || null);
+      setAplusImages(item.interactiveState.aplusImages || {});
       
       setCurrentHistoryId(item.id);
       setShowHistoryModal(false);
@@ -151,6 +161,8 @@ const App: React.FC = () => {
     setCustomTitles([]);
     setAuthorName('');
     setAuthorBio('');
+    setAplusContent(null);
+    setAplusImages({});
     // setAuthorUrl(''); // We can keep the URL or reset it. Keeping it is often better UX for same user.
     setCurrentHistoryId(null);
   };
@@ -161,6 +173,10 @@ const App: React.FC = () => {
   
   const handleCoverImageUpdate = (index: number, url: string) => {
     setCoverImages(prev => ({...prev, [index]: url}));
+  };
+  
+  const handleAplusImageUpdate = (index: number, url: string) => {
+    setAplusImages(prev => ({...prev, [index]: url}));
   };
   
   const handleDescriptionUpdate = (newDesc: string, newHtml: string) => {
@@ -236,6 +252,14 @@ ${currentCoverIdeas.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 
 ## Author Biography
 ${authorBio || "No biography provided."}
+
+## Amazon A+ Content Plan
+${aplusContent ? aplusContent.modules.map((m, i) => `
+### Module ${i+1}: ${m.type}
+- Headline: ${m.headline}
+- Body: ${m.body}
+- Image Prompt: ${m.imagePrompt}
+`).join('\n') : "No A+ content strategy generated."}
 
 ## Improvement Tips
 ${data.improvementTips.map(t => `- ${t}`).join('\n')}
@@ -382,6 +406,31 @@ ${data.improvementTips.map(t => `- ${t}`).join('\n')}
     data.marketingStrategy.forEach((s, i) => {
         addText(`${i+1}. ${s}`, 10);
     });
+    
+    // A+ Content
+    if (aplusContent) {
+        addSectionTitle("Amazon A+ Content Plan");
+        aplusContent.modules.forEach((m, i) => {
+            addText(`Module ${i+1}: ${m.type}`, 11, true);
+            addText(`Headline: ${m.headline}`, 10);
+            addText(`Body: ${m.body}`, 10);
+            y += 2;
+            
+            // Add generated image if exists
+            if (aplusImages[i]) {
+                try {
+                     // Add image with aspect ratio roughly 2:1 for headers
+                     doc.addImage(aplusImages[i], 'PNG', margin, y, maxLineWidth, 60);
+                     y += 65;
+                } catch (e) {
+                     console.error("Could not add A+ image to PDF", e);
+                }
+            } else {
+                 addText(`Image Prompt: ${m.imagePrompt}`, 9);
+                 y += 4;
+            }
+        });
+    }
     
     // Metadata
     addSectionTitle("Metadata");
@@ -620,6 +669,10 @@ ${data.improvementTips.map(t => `- ${t}`).join('\n')}
               onAuthorBioChange={setAuthorBio}
               onDescriptionUpdate={handleDescriptionUpdate}
               onDownloadPdf={downloadFixedPdf}
+              aplusContent={aplusContent}
+              onAplusContentChange={setAplusContent}
+              aplusImages={aplusImages}
+              onAplusImageGenerated={handleAplusImageUpdate}
             />
             
             {/* NEW BOTTOM SECTION for Download visibility */}

@@ -1,10 +1,10 @@
 
 
 import React, { useState } from 'react';
-import { AnalysisResult, SocialMediaContent } from '../types';
+import { AnalysisResult, SocialMediaContent, AplusContent } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
-import { TrendingUp, Users, Target, AlertTriangle, CheckCircle, Zap, BookOpen, PenTool, Image, Wrench, FileText, DollarSign, Rocket, Sparkles, Copy, Check, Download, User, Code, Eye, RefreshCw, Plus, FileDown, Link as LinkIcon, ExternalLink, Feather, Share2, Mail, Facebook, Twitter } from 'lucide-react';
-import { generateCoverImage, generateSpecificFix, generateNewCoverConcepts, integrateFixesIntoDescription, generateAuthorBio, generateSocialMediaContent } from '../services/geminiService';
+import { TrendingUp, Users, Target, AlertTriangle, CheckCircle, Zap, BookOpen, PenTool, Image, Wrench, FileText, DollarSign, Rocket, Sparkles, Copy, Check, Download, User, Code, Eye, RefreshCw, Plus, FileDown, Link as LinkIcon, ExternalLink, Feather, Share2, Mail, Facebook, Twitter, Layout, Layers } from 'lucide-react';
+import { generateCoverImage, generateSpecificFix, generateNewCoverConcepts, integrateFixesIntoDescription, generateAuthorBio, generateSocialMediaContent, generateAplusContent } from '../services/geminiService';
 
 interface ResultsDashboardProps {
   data: AnalysisResult;
@@ -26,6 +26,10 @@ interface ResultsDashboardProps {
   onAuthorBioChange: (bio: string) => void;
   onDescriptionUpdate: (desc: string, html: string) => void;
   onDownloadPdf: () => void;
+  aplusContent: AplusContent | null;
+  onAplusContentChange: (content: AplusContent) => void;
+  aplusImages: Record<number, string>;
+  onAplusImageGenerated: (index: number, url: string) => void;
 }
 
 const COLORS = ['#22c55e', '#94a3b8', '#ef4444'];
@@ -49,7 +53,11 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
   authorBio,
   onAuthorBioChange,
   onDescriptionUpdate,
-  onDownloadPdf
+  onDownloadPdf,
+  aplusContent,
+  onAplusContentChange,
+  aplusImages,
+  onAplusImageGenerated
 }) => {
   const [copied, setCopied] = useState(false);
   
@@ -76,6 +84,10 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
   const [socialContent, setSocialContent] = useState<SocialMediaContent | null>(null);
   const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
   const [copiedSocial, setCopiedSocial] = useState<string | null>(null);
+  
+  // A+ Content State
+  const [isGeneratingAplus, setIsGeneratingAplus] = useState(false);
+  const [generatingAplusImageIndex, setGeneratingAplusImageIndex] = useState<number | null>(null);
 
   const sentimentData = [
     { name: 'Positive', value: data.sentimentBreakdown.positive },
@@ -197,6 +209,33 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
     } finally {
         setIsGeneratingSocial(false);
     }
+  };
+
+  const handleGenerateAplusStrategy = async () => {
+      setIsGeneratingAplus(true);
+      try {
+          const content = await generateAplusContent(activeTitle, data.summary, authorBio || data.authorBio, data.marketingHooks);
+          onAplusContentChange(content);
+      } catch (e) {
+          console.error("Failed to generate A+ content", e);
+      } finally {
+          setIsGeneratingAplus(false);
+      }
+  };
+
+  const handleGenerateAplusImage = async (index: number, prompt: string) => {
+      setGeneratingAplusImageIndex(index);
+      try {
+          // Re-use the cover generation service but with the specific A+ prompt
+          // We pass genre/author to help with style consistency, but the prompt is the key
+          const imageUrl = await generateCoverImage(prompt, activeTitle, data.categoryPrediction, authorName);
+          onAplusImageGenerated(index, imageUrl);
+      } catch (e) {
+          console.error("Failed to generate A+ image", e);
+          alert("Failed to generate image.");
+      } finally {
+          setGeneratingAplusImageIndex(null);
+      }
   };
 
   return (
@@ -438,7 +477,7 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
         </p>
       </div>
 
-      {/* Social Media Marketing Kit - NEW SECTION */}
+      {/* Social Media Marketing Kit */}
       <div className="bg-slate-850 p-6 rounded-xl border border-slate-700 shadow-lg">
         <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-2">
             <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -523,6 +562,100 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
                         </button>
                     </div>
                 </div>
+            </div>
+        )}
+      </div>
+
+       {/* Amazon A+ Content Architect - NEW SECTION */}
+       <div className="bg-slate-850 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-2">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Layout size={20} className="text-amber-500" />
+                Amazon A+ Content Architect
+            </h3>
+            
+            {!aplusContent && (
+                <button
+                    onClick={handleGenerateAplusStrategy}
+                    disabled={isGeneratingAplus}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded text-sm font-medium border border-amber-800 transition-all"
+                >
+                    {isGeneratingAplus ? (
+                        <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                        <Layers size={14} />
+                    )}
+                    Design A+ Strategy
+                </button>
+            )}
+        </div>
+        
+        {!aplusContent ? (
+            <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-700 rounded-lg">
+                <p>Click "Design A+ Strategy" to generate a professional layout plan for your Amazon book page.</p>
+                <p className="text-xs text-slate-500 mt-2">Includes headers, feature highlights, and brand story modules.</p>
+            </div>
+        ) : (
+            <div className="space-y-8 animate-fade-in">
+                {aplusContent.modules.map((module, i) => (
+                    <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                        <div className="bg-slate-800/50 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
+                            <span className="text-amber-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                                <Layout size={12} /> {module.type}
+                            </span>
+                            <span className="text-slate-500 text-xs">Module {i+1}</span>
+                        </div>
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <h5 className="text-xs text-slate-500 uppercase font-bold mb-1">Headline Text</h5>
+                                    <p className="text-white font-medium">{module.headline}</p>
+                                </div>
+                                <div>
+                                    <h5 className="text-xs text-slate-500 uppercase font-bold mb-1">Body Copy</h5>
+                                    <p className="text-slate-300 text-sm whitespace-pre-wrap">{module.body}</p>
+                                </div>
+                                <div>
+                                    <h5 className="text-xs text-slate-500 uppercase font-bold mb-1">Art Direction / Prompt</h5>
+                                    <p className="text-slate-400 text-xs italic bg-slate-950 p-2 rounded border border-slate-800">{module.imagePrompt}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex flex-col">
+                                {aplusImages[i] ? (
+                                    <div className="relative group rounded-lg overflow-hidden border border-slate-700 shadow-md">
+                                        <img src={aplusImages[i]} alt={`Module ${i+1}`} className="w-full h-auto object-cover" />
+                                        <a 
+                                            href={aplusImages[i]} 
+                                            download={`aplus-module-${i+1}.png`}
+                                            className="absolute bottom-2 right-2 bg-slate-900/90 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-amber-600"
+                                            title="Download Image"
+                                        >
+                                            <Download size={16} />
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-950 border-2 border-dashed border-slate-800 rounded-lg flex-1 min-h-[160px] flex flex-col items-center justify-center p-6 text-center">
+                                        <Image className="text-slate-700 mb-2" size={32} />
+                                        <p className="text-slate-500 text-xs mb-4">No image generated yet</p>
+                                        <button 
+                                            onClick={() => handleGenerateAplusImage(i, module.imagePrompt)}
+                                            disabled={generatingAplusImageIndex === i}
+                                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-xs font-medium border border-slate-700 transition-colors flex items-center gap-2"
+                                        >
+                                            {generatingAplusImageIndex === i ? (
+                                                <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                                            ) : (
+                                                <Sparkles size={12} />
+                                            )}
+                                            Generate Module Image
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
         )}
       </div>

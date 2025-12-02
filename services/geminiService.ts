@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { AnalysisResult, TrendingCategory, SocialMediaContent, ChapterOutlineItem } from "../types";
+import { AnalysisResult, TrendingCategory, SocialMediaContent, ChapterOutlineItem, AplusContent } from "../types";
 
 const apiKey = process.env.API_KEY || '';
 
@@ -620,5 +620,68 @@ export const generateChapterOutline = async (
   } catch (error) {
     console.error("Outline generation failed:", error);
     return [];
+  }
+};
+
+export const generateAplusContent = async (
+  title: string,
+  summary: string,
+  authorBio: string,
+  hooks: string[]
+): Promise<AplusContent> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [{
+          text: `You are an Amazon A+ Content expert.
+          
+          Create a high-conversion A+ Content strategy for:
+          Title: "${title}"
+          Summary: "${summary}"
+          Author Bio: "${authorBio}"
+          
+          Generate 3 specific A+ Modules:
+          1. "Standard Image Header with Text" (A main banner with a catchy headline and short intro).
+          2. "Standard Three Images & Text" (Focusing on 3 feature highlights or hooks).
+          3. "Standard Single Image & Sidebar" (Brand story, Author focus, or social proof).
+          
+          For EACH module, provide:
+          - The Module Type name.
+          - A compelling Headline.
+          - Persuasive Body Copy.
+          - A detailed Image Generation Prompt to create the visual asset for this module.
+          
+          Return JSON.`
+        }]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            modules: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  type: { type: Type.STRING },
+                  headline: { type: Type.STRING },
+                  body: { type: Type.STRING },
+                  imagePrompt: { type: Type.STRING }
+                },
+                required: ["type", "headline", "body", "imagePrompt"]
+              }
+            }
+          },
+          required: ["modules"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text || '{"modules": []}') as AplusContent;
+  } catch (error) {
+    console.error("A+ Content generation failed:", error);
+    throw error;
   }
 };

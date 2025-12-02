@@ -13,6 +13,17 @@ export interface SocialMediaContent {
   emailBody: string;
 }
 
+export interface AplusModule {
+  type: string;
+  headline: string;
+  body: string;
+  imagePrompt: string;
+}
+
+export interface AplusContent {
+  modules: AplusModule[];
+}
+
 export interface AnalysisResult {
   title: string;
   author: string;
@@ -65,6 +76,8 @@ export interface HistoryItem {
     authorUrl?: string;
     authorBio?: string;
     socialMediaContent?: SocialMediaContent;
+    aplusContent?: AplusContent;
+    aplusImages?: Record<number, string>;
   }
 }
 
