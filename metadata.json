@@ -1,0 +1,7 @@
+{
+  "name": "BookScope - Book Analyzer",
+  "description": "AI-powered analytics tool for authors and publishers to analyze Amazon eBook descriptions, reviews, and competitor listings using text or screenshots.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
