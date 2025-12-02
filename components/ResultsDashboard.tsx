@@ -1,10 +1,10 @@
 
 
 import React, { useState } from 'react';
-import { AnalysisResult } from '../types';
+import { AnalysisResult, SocialMediaContent } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
-import { TrendingUp, Users, Target, AlertTriangle, CheckCircle, Zap, BookOpen, PenTool, Image, Wrench, FileText, DollarSign, Rocket, Sparkles, Copy, Check, Download, User, Code, Eye, RefreshCw, Plus, FileDown, Link as LinkIcon, ExternalLink, Feather } from 'lucide-react';
-import { generateCoverImage, generateSpecificFix, generateNewCoverConcepts, integrateFixesIntoDescription, generateAuthorBio } from '../services/geminiService';
+import { TrendingUp, Users, Target, AlertTriangle, CheckCircle, Zap, BookOpen, PenTool, Image, Wrench, FileText, DollarSign, Rocket, Sparkles, Copy, Check, Download, User, Code, Eye, RefreshCw, Plus, FileDown, Link as LinkIcon, ExternalLink, Feather, Share2, Mail, Facebook, Twitter } from 'lucide-react';
+import { generateCoverImage, generateSpecificFix, generateNewCoverConcepts, integrateFixesIntoDescription, generateAuthorBio, generateSocialMediaContent } from '../services/geminiService';
 
 interface ResultsDashboardProps {
   data: AnalysisResult;
@@ -72,6 +72,11 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
   // Bio Generation State
   const [isGeneratingBio, setIsGeneratingBio] = useState(false);
 
+  // Social Media Kit State
+  const [socialContent, setSocialContent] = useState<SocialMediaContent | null>(null);
+  const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
+  const [copiedSocial, setCopiedSocial] = useState<string | null>(null);
+
   const sentimentData = [
     { name: 'Positive', value: data.sentimentBreakdown.positive },
     { name: 'Neutral', value: data.sentimentBreakdown.neutral },
@@ -83,6 +88,12 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSocial(id);
+    setTimeout(() => setCopiedSocial(null), 2000);
   };
 
   const handleTitleSelect = async (newTitle: string) => {
@@ -173,6 +184,18 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
         console.error("Failed to generate bio", e);
     } finally {
         setIsGeneratingBio(false);
+    }
+  };
+
+  const handleGenerateSocial = async () => {
+    setIsGeneratingSocial(true);
+    try {
+        const content = await generateSocialMediaContent(activeTitle, data.summary, data.marketingHooks);
+        setSocialContent(content);
+    } catch (e) {
+        console.error("Failed to generate social content", e);
+    } finally {
+        setIsGeneratingSocial(false);
     }
   };
 
@@ -413,6 +436,95 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
              ? "This version incorporates keywords and addresses weaknesses." 
              : "Copy this raw HTML code and paste it directly into the Amazon KDP description editor."}
         </p>
+      </div>
+
+      {/* Social Media Marketing Kit - NEW SECTION */}
+      <div className="bg-slate-850 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-2">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Share2 size={20} className="text-purple-400" />
+                Social Media Marketing Kit
+            </h3>
+            
+            {!socialContent && (
+                <button
+                    onClick={handleGenerateSocial}
+                    disabled={isGeneratingSocial}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 rounded text-sm font-medium border border-purple-800 transition-all"
+                >
+                    {isGeneratingSocial ? (
+                        <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                        <Sparkles size={14} />
+                    )}
+                    Generate Marketing Copy
+                </button>
+            )}
+        </div>
+        
+        {!socialContent ? (
+            <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-700 rounded-lg">
+                <p>Click "Generate Marketing Copy" to create ready-to-post Tweets, Facebook Ads, and Emails.</p>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                {/* Tweets */}
+                <div className="space-y-4">
+                    <h4 className="text-white font-semibold flex items-center gap-2">
+                        <Twitter size={16} className="text-blue-400"/> Tweets / X Posts
+                    </h4>
+                    {socialContent.tweets.map((tweet, i) => (
+                        <div key={i} className="bg-slate-900 p-3 rounded-lg border border-slate-700 text-sm text-slate-300 relative group">
+                            <p className="pr-6">{tweet}</p>
+                            <button 
+                                onClick={() => handleCopyText(tweet, `tweet-${i}`)}
+                                className="absolute top-2 right-2 text-slate-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+                                title="Copy"
+                            >
+                                {copiedSocial === `tweet-${i}` ? <Check size={14} /> : <Copy size={14} />}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* FB & Email */}
+                <div className="space-y-6">
+                    {/* FB Ad */}
+                    <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 relative group">
+                        <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
+                            <Facebook size={16} className="text-blue-600"/> Facebook Ad Copy
+                        </h4>
+                        <div className="text-sm text-slate-300 whitespace-pre-wrap">{socialContent.facebookAd}</div>
+                        <button 
+                            onClick={() => handleCopyText(socialContent.facebookAd, 'fb-ad')}
+                            className="absolute top-4 right-4 text-slate-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+                            title="Copy"
+                        >
+                            {copiedSocial === 'fb-ad' ? <Check size={16} /> : <Copy size={16} />}
+                        </button>
+                    </div>
+
+                    {/* Email */}
+                    <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 relative group">
+                        <h4 className="text-white font-semibold flex items-center gap-2 mb-2">
+                            <Mail size={16} className="text-yellow-500"/> Email Newsletter
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                            <p className="font-bold text-slate-200"><span className="text-slate-500 font-normal">Subject:</span> {socialContent.emailSubject}</p>
+                            <div className="h-px bg-slate-800"></div>
+                            <p className="text-slate-300 whitespace-pre-wrap">{socialContent.emailBody}</p>
+                        </div>
+                        <button 
+                            onClick={() => handleCopyText(`${socialContent.emailSubject}\n\n${socialContent.emailBody}`, 'email')}
+                            className="absolute top-4 right-4 text-slate-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+                            title="Copy"
+                        >
+                            {copiedSocial === 'email' ? <Check size={16} /> : <Copy size={16} />}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
 
       {/* Creative Strategy: Titles & Covers */}

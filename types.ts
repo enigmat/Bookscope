@@ -6,10 +6,17 @@ export interface SentimentBreakdown {
   negative: number;
 }
 
+export interface SocialMediaContent {
+  tweets: string[];
+  facebookAd: string;
+  emailSubject: string;
+  emailBody: string;
+}
+
 export interface AnalysisResult {
   title: string;
   author: string;
-  authorBio: string; // New: Author biography
+  authorBio: string;
   summary: string;
   sentimentScore: number; // 0 to 100
   sentimentBreakdown: SentimentBreakdown;
@@ -28,7 +35,7 @@ export interface AnalysisResult {
   marketingStrategy: string[];
   improvementTips: string[];
   improvedDescription: string;
-  amazonKdpHtml: string; // New: Raw HTML for KDP
+  amazonKdpHtml: string;
 }
 
 export interface AnalyzerState {
@@ -57,6 +64,7 @@ export interface HistoryItem {
     authorName: string;
     authorUrl?: string;
     authorBio?: string;
+    socialMediaContent?: SocialMediaContent;
   }
 }
 
@@ -73,6 +81,11 @@ export interface TrendingTopic {
 export interface TrendingCategory {
   categoryName: string;
   topics: TrendingTopic[];
+}
+
+export interface ChapterOutlineItem {
+  chapterTitle: string;
+  description: string;
 }
 
 export type AppMode = 'ANALYZE' | 'TRENDS';

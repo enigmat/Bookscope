@@ -1,9 +1,9 @@
 
 
 import React, { useState } from 'react';
-import { TrendingTopic, TrendingCategory } from '../types';
-import { getTrendingTopics, generateTitleFromTopic, generateCoverImage, generatePersona } from '../services/geminiService';
-import { Sparkles, TrendingUp, ArrowRight, Loader, Book, Download, RefreshCw, User, Grid, Search, BarChart3, Eye, Feather } from 'lucide-react';
+import { TrendingTopic, TrendingCategory, ChapterOutlineItem } from '../types';
+import { getTrendingTopics, generateTitleFromTopic, generateCoverImage, generatePersona, generateChapterOutline } from '../services/geminiService';
+import { Sparkles, TrendingUp, ArrowRight, Loader, Book, Download, RefreshCw, User, Grid, Search, BarChart3, Eye, Feather, List, FileText } from 'lucide-react';
 
 interface TrendFinderProps {
   authorName: string;
@@ -27,6 +27,10 @@ export const TrendFinder: React.FC<TrendFinderProps> = ({ authorName }) => {
   const [penName, setPenName] = useState('');
   const [authorBio, setAuthorBio] = useState('');
 
+  // Outline State
+  const [chapterOutline, setChapterOutline] = useState<ChapterOutlineItem[]>([]);
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
+
   const handleScanTrends = async (customTopic?: string) => {
     setLoading(true);
     setCategories([]);
@@ -36,6 +40,7 @@ export const TrendFinder: React.FC<TrendFinderProps> = ({ authorName }) => {
     setGeneratedCover('');
     setPenName('');
     setAuthorBio('');
+    setChapterOutline([]);
     
     // If a custom topic is passed (e.g. from preset), update search term UI to match
     if (customTopic) {
@@ -72,6 +77,7 @@ export const TrendFinder: React.FC<TrendFinderProps> = ({ authorName }) => {
     setGeneratedCover('');
     setPenName('');
     setAuthorBio('');
+    setChapterOutline([]);
 
     try {
       // 1. Generate Title
@@ -105,6 +111,19 @@ export const TrendFinder: React.FC<TrendFinderProps> = ({ authorName }) => {
       alert("Failed to generate concept.");
     } finally {
       setGeneratingConcept(false);
+    }
+  };
+
+  const handleGenerateOutline = async () => {
+    if (!selectedTopic || !generatedTitle) return;
+    setIsGeneratingOutline(true);
+    try {
+        const outline = await generateChapterOutline(selectedTopic.topic, generatedTitle, selectedTopic.audience);
+        setChapterOutline(outline);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingOutline(false);
     }
   };
 
@@ -321,6 +340,48 @@ export const TrendFinder: React.FC<TrendFinderProps> = ({ authorName }) => {
                             <Book size={16} className="text-blue-400"/> The Concept
                          </h4>
                          <p className="text-slate-400 text-sm">{selectedTopic.description}</p>
+                      </div>
+
+                      {/* Chapter Outline Generator - NEW */}
+                      <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                         <div className="flex justify-between items-center mb-4">
+                             <h4 className="text-white font-semibold flex items-center gap-2">
+                                <List size={16} className="text-green-400"/> Book Outline
+                             </h4>
+                             {chapterOutline.length === 0 && (
+                                 <button
+                                    onClick={handleGenerateOutline}
+                                    disabled={isGeneratingOutline || generatingConcept}
+                                    className="px-3 py-1.5 bg-green-900/30 hover:bg-green-900/50 text-green-300 text-xs rounded border border-green-800 transition-all flex items-center gap-2 disabled:opacity-50"
+                                 >
+                                    {isGeneratingOutline ? <Loader size={12} className="animate-spin" /> : <FileText size={12} />}
+                                    Generate Chapters
+                                 </button>
+                             )}
+                         </div>
+
+                         {isGeneratingOutline && (
+                             <div className="text-center py-8 text-slate-500 animate-pulse text-sm">
+                                 Planning your book structure...
+                             </div>
+                         )}
+
+                         {!isGeneratingOutline && chapterOutline.length === 0 && (
+                             <p className="text-xs text-slate-500 italic">
+                                Click 'Generate Chapters' to create a 10-chapter outline for this book idea.
+                             </p>
+                         )}
+
+                         {chapterOutline.length > 0 && (
+                             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                 {chapterOutline.map((chapter, i) => (
+                                     <div key={i} className="bg-slate-900/50 p-3 rounded border border-slate-800">
+                                         <p className="text-green-400 font-bold text-xs mb-1">Chapter {i + 1}: {chapter.chapterTitle}</p>
+                                         <p className="text-slate-400 text-xs">{chapter.description}</p>
+                                     </div>
+                                 ))}
+                             </div>
+                         )}
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">

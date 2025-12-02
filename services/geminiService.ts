@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { AnalysisResult, TrendingCategory } from "../types";
+import { AnalysisResult, TrendingCategory, SocialMediaContent, ChapterOutlineItem } from "../types";
 
 const apiKey = process.env.API_KEY || '';
 
@@ -524,4 +524,101 @@ export const generatePersona = async (topic: string, genre: string): Promise<{ p
         console.error("Persona generation failed:", error);
         return { penName: "Author Name", bio: "" };
     }
-}
+};
+
+export const generateSocialMediaContent = async (
+  title: string,
+  summary: string,
+  hooks: string[]
+): Promise<SocialMediaContent> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [{
+          text: `You are a social media marketing expert for authors.
+          
+          Book Title: "${title}"
+          Summary: "${summary}"
+          Marketing Hooks: "${hooks.join(', ')}"
+          
+          Generate a "Social Media Marketing Kit" containing:
+          1. Three (3) engaging Tweets (X posts) with hashtags.
+          2. One (1) compelling Facebook Ad text (Headline + Body).
+          3. One (1) Email Newsletter (Subject Line + Body).
+          
+          Return JSON.`
+        }]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            tweets: { type: Type.ARRAY, items: { type: Type.STRING } },
+            facebookAd: { type: Type.STRING },
+            emailSubject: { type: Type.STRING },
+            emailBody: { type: Type.STRING }
+          },
+          required: ["tweets", "facebookAd", "emailSubject", "emailBody"]
+        }
+      }
+    });
+    
+    return JSON.parse(response.text || '{}') as SocialMediaContent;
+  } catch (error) {
+    console.error("Social media generation failed:", error);
+    throw error;
+  }
+};
+
+export const generateChapterOutline = async (
+  topic: string,
+  title: string,
+  audience: string
+): Promise<ChapterOutlineItem[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [{
+          text: `You are a professional book editor.
+          
+          Create a detailed 10-chapter outline for a book.
+          Topic: ${topic}
+          Title: ${title}
+          Target Audience: ${audience}
+          
+          For each chapter, provide a catchy Chapter Title and a brief 1-sentence description of what it covers.
+          
+          Return JSON array.`
+        }]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            chapters: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  chapterTitle: { type: Type.STRING },
+                  description: { type: Type.STRING }
+                },
+                required: ["chapterTitle", "description"]
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const json = JSON.parse(response.text || '{"chapters": []}');
+    return json.chapters || [];
+  } catch (error) {
+    console.error("Outline generation failed:", error);
+    return [];
+  }
+};
